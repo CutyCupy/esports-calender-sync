@@ -1,315 +1,24 @@
-import re
+import json
 import time
 from datetime import datetime, timedelta
-from urllib.parse import urlparse
 
-import pytz
-import requests
-import yaml
-from bs4 import BeautifulSoup
-from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import json
 
-try:
-    from zoneinfo import ZoneInfo  # Python 3.9+
-except ImportError:
-    from backports.zoneinfo import ZoneInfo  # Python <3.9
+from logger import cleanup_logs
+from parser import CALENDAR_SERVICE, GAME_TO_COLOR, GERMAN_WEEKDAYS, SHEETS_SERVICE, TZ, parse_url
+from config import CONFIG
+
+from logger import logger, log_file
+
+
+from zoneinfo import ZoneInfo  # Python 3.9+
     
-import logging
-import os
-import shutil
-
-def cleanup_logs(days=7):
-    base_dir = "logs"
-    now = datetime.now()
-
-    if not os.path.exists(base_dir):
-        return
-
-    for folder in os.listdir(base_dir):
-        folder_path = os.path.join(base_dir, folder)
-
-        try:
-            folder_date = datetime.strptime(folder, "%Y-%m-%d")
-        except ValueError:
-            continue
-
-        if now - folder_date > timedelta(days=days):
-            shutil.rmtree(folder_path)
 
 
-def setup_run_logger():
-    now = datetime.now()
-
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%H-%M-%S")
-
-    log_dir = os.path.join("logs", date_str)
-    os.makedirs(log_dir, exist_ok=True)
-
-    log_file = os.path.join(log_dir, f"run_{time_str}.log")
-
-    logger = logging.getLogger(f"run_{time_str}")
-    logger.setLevel(logging.INFO)
-
-    formatter = logging.Formatter(
-        '[%(asctime)s] [%(levelname)s] %(message)s',
-        '%Y-%m-%d %H:%M:%S'
-    )
-
-    fh = logging.FileHandler(log_file, encoding="utf-8")
-    fh.setFormatter(formatter)
-
-    ch = logging.StreamHandler()
-    ch.setFormatter(formatter)
-
-    logger.addHandler(fh)
-    logger.addHandler(ch)
-
-    return logger, log_file
-
-
-SERVICE_ACCOUNT_FILE = "service_account.json"
-SCOPES = [
-    "https://www.googleapis.com/auth/calendar",
-    "https://www.googleapis.com/auth/spreadsheets",
-]
-TZ = ZoneInfo("Europe/Berlin")
-GERMAN_WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
-GAME_TO_COLOR = {
-    "LoL": "5",
-    "RL": "1",
-    "OW": "6",
-    "R6": "4",
-}
-
-
-def load_config(path="config.yaml"):
-    with open(path, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
-
-def save_config(cfg, path="config.yaml"):
-    with open(path, "w") as f:
-        yaml.dump(cfg, f, indent=2)
-
-
-config = load_config()
-
-creds = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=SCOPES,
-)
-CALENDAR_SERVICE = build("calendar", "v3", credentials=creds)
-SHEETS_SERVICE = build("sheets", "v4", credentials=creds)
 
 
 def make_uid(match):
     return match["id"]
-
-
-def get_soup(url):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/118.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "de-DE,de;q=0.9,en;q=0.8",
-        "Referer": "https://www.primeleague.gg/",
-        "Connection": "keep-alive",
-        "DNT": "1",
-    }
-    response = requests.get(url, headers=headers, timeout=10)
-    response.raise_for_status()
-    return BeautifulSoup(response.text, "html.parser")
-
-
-def parse_team_page(url):
-    parser = get_parser(url)
-    if parser is None:
-        logger.error("Kein parser für URL '%s' gefunden.", url)
-        return
-
-    matches = parser(url)
-    if len(matches) == 0:
-        logger.error("Keine matches für URL '%s' gefunden.", url)
-        return
-
-    is_one_match = len(matches) == 1
-    logger.info("Für die URL '%s' %s %d %s gefunden", url, "wurde" if is_one_match else "wurden", len(matches), "Match" if is_one_match else "Matches")
-    for match in matches:
-        logger.info(
-            "Match %s | %s vs %s",
-            match.get("id"),
-            match.get("our_team"),
-            match.get("opponent_team"),
-        )
-        try:
-            add_match_to_casting_calendar(match)
-            add_match_to_calendar(match)
-        except Exception:
-            logger.exception(
-                "Fehler bei Match %s\n%s",
-                match.get("id"),
-                json.dumps(match, indent=2, default=str)
-            )
-
-
-def parse_primeleague(url):
-    pattern = r"^https://www\.primeleague\.gg/.*/matches/(\d+)-"
-    match = re.match(pattern, url)
-    if not match:
-        raise ValueError("URL ist keine gültige Primeleague-Matches-URL")
-
-    match_id = int(match.group(1))
-    api_url = f"https://api.heartbase.gg/league_match_get?match_id={match_id}"
-    return fetch_primeleague_match(api_url)
-
-
-def fetch_primeleague_match(api_url: str):
-    headers = {
-        "Authorization": f"Bearer {config['primeleague_token']}",
-        "Accept": "application/json",
-    }
-    response = requests.get(api_url, headers=headers, timeout=15)
-    response.raise_for_status()
-    return parse_primeleague_match(response.json())
-
-
-def parse_primeleague_match(data: dict):
-    opp1 = data.get("opp_1", {}) if data.get("opp_1", {}) != [] else {}
-    opp2 = data.get("opp_2", {}) if data.get("opp_2", {}) != [] else {}
-
-    team1 = opp1.get("_team", {})
-    team2 = opp2.get("_team", {})
-
-    name1 = team1.get("team_name", "???")
-    name2 = team2.get("team_name", "???")
-
-    short1 = opp1.get("_short", "???")
-    score1 = data.get("match_score_1", 0)
-    score2 = data.get("match_score_2", 0)
-
-    if re.match(config["prefix"], short1):
-        our_team = name1
-        opponent_team = name2
-        our_score = score1
-        opponent_score = score2
-    else:
-        our_team = name2
-        opponent_team = name1
-        our_score = score2
-        opponent_score = score1
-
-    match_url = f"https://www.primeleague.gg/en/{data.get('_url')}"
-    start_time = data.get("match_time")
-
-    return [{
-        "game": "LoL",
-        "our_team": re.sub(config["prefix"], "", our_team),
-        "opponent_team": re.sub(config["prefix"], "", opponent_team),
-        "id": re.search(r"matches/(\d+)", match_url).group(1),
-        "match_url": match_url,
-        "ts": datetime.fromtimestamp(
-            start_time,
-            tz=pytz.timezone(config["calendar"]["timezone"]),
-        ),
-        "match_id": data.get("_id"),
-        "our_score": f"{our_score}" if data.get("match_status") != "upcoming" else "",
-        "opponent_score": (
-            f"{opponent_score}" if data.get("match_status") != "upcoming" else ""
-        ),
-    }]
-
-
-def parse_google_docs(url):
-    match = re.search(r"/d/([a-zA-Z0-9-_]+)", url)
-    if not match:
-        return []
-
-    spreadsheet_id = match.group(1)
-    matches = []
-
-    spreadsheet = SHEETS_SERVICE.spreadsheets().get(
-        spreadsheetId=spreadsheet_id,
-    ).execute()
-
-    for sheet in spreadsheet.get("sheets", []):
-        title = sheet["properties"]["title"]
-        result = SHEETS_SERVICE.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=f"'{title}'",
-        ).execute()
-
-        for row in result.get("values", [])[1:]:
-            try:
-                matches.append({
-                    "game": title,
-                    "our_team": row[0],
-                    "opponent_team": row[1],
-                    "id": row[4],
-                    "match_url": row[4],
-                    "ts": datetime.strptime(
-                        f"{row[2]} {row[3]}",
-                        "%d.%m.%Y %H:%M",
-                    ).replace(tzinfo=TZ),
-                    "team": url,
-                })
-            except Exception:
-                continue
-
-    return matches
-
-
-def parse_velos(url):
-    soup = get_soup(url)
-    our_team_id = url.rstrip("/").split("/")[-1]
-    season = soup.select_one("#radix-_r_1m_").get_text(strip=True)
-
-    matches = []
-    for item in soup.select(".space-y-4 .p-5"):
-        time_el = item.select_one("div>div:last-child>span")
-        if not time_el:
-            continue
-
-        dt = datetime.strptime(time_el.get_text(strip=True)[4:], "%d.%m.%y %H:%M")
-        match_week = item.select_one("div>div>span")
-        match_id = f"velos/{our_team_id}/{season}/{match_week}"
-
-        left_team_match = re.match(
-            r"^(?P<name>.+?)\s*(?P<short>\[[^\]]+\])$",
-            item.select_one(".grid>div>div:last-child").get_text(strip=True),
-        )
-        right_team_match = re.match(
-            r"^(?P<name>.+?)\s*(?P<short>\[[^\]]+\])$",
-            item.select_one(".grid>div:last-child>div:last-child").get_text(strip=True),
-        )
-
-        our_team_match = (
-            left_team_match
-            if re.match(config["prefix"], left_team_match["short"])
-            else right_team_match
-        )
-        opponent_team_match = (
-            right_team_match
-            if re.match(config["prefix"], left_team_match["short"])
-            else left_team_match
-        )
-
-        matches.append({
-            "game": "RL",
-            "our_team": re.sub(config["prefix"], "", our_team_match["name"]),
-            "opponent_team": re.sub(config["prefix"], "", opponent_team_match["name"]),
-            "id": match_id,
-            "match_url": url,
-            "ts": dt,
-            "team": url,
-        })
-
-    return matches
-
 
 def compare_scores(str1: str, str2: str) -> str:
     s1 = str1.strip().lower()
@@ -364,11 +73,11 @@ def add_match_to_calendar(match):
         "description": description,
         "start": {
             "dateTime": match["ts"].isoformat(),
-            "timeZone": config["calendar"]["timezone"],
+            "timeZone": CONFIG["calendar"]["timezone"],
         },
         "end": {
             "dateTime": (match["ts"] + timedelta(hours=2)).isoformat(),
-            "timeZone": config["calendar"]["timezone"],
+            "timeZone": CONFIG["calendar"]["timezone"],
         },
         "colorId": GAME_TO_COLOR[match["game"]],
         "reminders": {
@@ -380,7 +89,7 @@ def add_match_to_calendar(match):
     
     logger.info("Ermittlung ob bereits Kalendereinträge für das Match existieren.")
     existing = CALENDAR_SERVICE.events().list(
-        calendarId=config["calendar"]["id"],
+        calendarId=CONFIG["calendar"]["id"],
         iCalUID=event["iCalUID"],
         showDeleted=True,
     ).execute()
@@ -401,7 +110,7 @@ def add_match_to_calendar(match):
                 logger.info("Das vorhandene Event '%s' ist identisch zum aktuellen Stand des Events. Kein Update nötig.", event_id)    
                 continue
             updated_event = CALENDAR_SERVICE.events().update(
-                calendarId=config["calendar"]["id"],
+                calendarId=CONFIG["calendar"]["id"],
                 eventId=event_id,
                 body=event,
             ).execute()
@@ -409,7 +118,7 @@ def add_match_to_calendar(match):
     else:
         logger.info("Es existiert kein Eintrag für das Match.")
         new_event = CALENDAR_SERVICE.events().insert(
-            calendarId=config["calendar"]["id"],
+            calendarId=CONFIG["calendar"]["id"],
             body=event,
         ).execute()
         logger.info("Event '%s' wurde erstellt.", new_event.get('htmlLink'))
@@ -494,7 +203,7 @@ def add_match_to_casting_calendar(match):
 
             logger.info("Aktuelle Zeile des Matches im Casting Kalender wird für das Update entfernt.")
             SHEETS_SERVICE.spreadsheets().values().update(
-                spreadsheetId=config["casting-sheet-id"],
+                spreadsheetId=CONFIG["casting-sheet-id"],
                 range=f"C{idx}:M{idx}",
                 valueInputOption="USER_ENTERED",
                 body={"values": [["", "", "", "", "", "", "", "", "", "", ""]]},
@@ -509,7 +218,7 @@ def add_match_to_casting_calendar(match):
             if row_index == idx and (len(row) < 3 or row[2] == ""):
                 logger.info("Eintrag wird im Casting Kalender hinzugefügt.")
                 SHEETS_SERVICE.spreadsheets().values().update(
-                    spreadsheetId=config["casting-sheet-id"],
+                    spreadsheetId=CONFIG["casting-sheet-id"],
                     range=f"A{idx}:M{idx}",
                     valueInputOption="USER_ENTERED",
                     body={"values": [row_data]},
@@ -520,7 +229,7 @@ def add_match_to_casting_calendar(match):
     logger.info("Neue Zeile für Eintrag wird hinzugefügt.")
     insert_at = max(date_map[event_date]) + 1
     SHEETS_SERVICE.spreadsheets().batchUpdate(
-        spreadsheetId=config["casting-sheet-id"],
+        spreadsheetId=CONFIG["casting-sheet-id"],
         body={
             "requests": [{
                 "insertDimension": {
@@ -539,7 +248,7 @@ def add_match_to_casting_calendar(match):
     
     logger.info("Eintrag wird im Casting Kalender hinzugefügt.")
     SHEETS_SERVICE.spreadsheets().values().append(
-        spreadsheetId=config["casting-sheet-id"],
+        spreadsheetId=CONFIG["casting-sheet-id"],
         range=f"A{insert_at}:M{insert_at}",
         valueInputOption="USER_ENTERED",
         insertDataOption="OVERWRITE",
@@ -563,7 +272,7 @@ def format_date_fields(dt: datetime):
 
 def load_sheet_rows():
     result = SHEETS_SERVICE.spreadsheets().values().get(
-        spreadsheetId=config["casting-sheet-id"],
+        spreadsheetId=CONFIG["casting-sheet-id"],
         range="A2:M",
     ).execute()
     return result.get("values", [])
@@ -575,7 +284,7 @@ def parse_date(value):
 
 def load_rows_with_index():
     result = SHEETS_SERVICE.spreadsheets().values().get(
-        spreadsheetId=config["casting-sheet-id"],
+        spreadsheetId=CONFIG["casting-sheet-id"],
         range="A2:M",
     ).execute()
 
@@ -621,7 +330,7 @@ def ensure_date_range_for_day(target_day):
 
     if not existing_dates:
         SHEETS_SERVICE.spreadsheets().values().append(
-            spreadsheetId=config["casting-sheet-id"],
+            spreadsheetId=CONFIG["casting-sheet-id"],
             range="A:M",
             valueInputOption="USER_ENTERED",
             insertDataOption="INSERT_ROWS",
@@ -652,7 +361,7 @@ def ensure_date_range_for_day(target_day):
                     pass
 
         SHEETS_SERVICE.spreadsheets().batchUpdate(
-            spreadsheetId=config["casting-sheet-id"],
+            spreadsheetId=CONFIG["casting-sheet-id"],
             body={
                 "requests": [{
                     "insertDimension": {
@@ -669,7 +378,7 @@ def ensure_date_range_for_day(target_day):
         ).execute()
 
         SHEETS_SERVICE.spreadsheets().values().update(
-            spreadsheetId=config["casting-sheet-id"],
+            spreadsheetId=CONFIG["casting-sheet-id"],
             range=f"A{insert_at}:M{insert_at}" if insert_at else "A:M",
             valueInputOption="USER_ENTERED",
             body={"values": [empty_day_row(day)]},
@@ -680,7 +389,7 @@ def ensure_date_range_for_day(target_day):
 
 def get_sheet_id(title="Tabellenblatt1"):
     meta = SHEETS_SERVICE.spreadsheets().get(
-        spreadsheetId=config["casting-sheet-id"],
+        spreadsheetId=CONFIG["casting-sheet-id"],
     ).execute()
 
     for sheet in meta["sheets"]:
@@ -719,44 +428,39 @@ def empty_day_row(day):
     ]
 
 
-URL_TO_INFORMATION = {
-    "primeleague.gg": parse_primeleague,
-    "docs.google.com": parse_google_docs,
-    "velos.gg": parse_velos,
-    "api.heartbase.gg": fetch_primeleague_match,
-}
-
-
-def get_parser(url):
-    try:
-        parsed = urlparse(url)
-        for site, parser in URL_TO_INFORMATION.items():
-            if parsed.netloc.endswith(site):
-                return parser
-        return None
-    except Exception:
-        return None
 
 
 def main():
-    global logger
-    
     cleanup_logs(days=7)
-    logger, logfile = setup_run_logger()
-
     start = time.time()
     
     logger.info("Start der Verarbeitung")
-    for url in config["teams"]:
+    for url in CONFIG["teams"]:
         logger.info("Start der Verarbeitung von '%s'", url)
         try:
-            parse_team_page(url.strip())
+            matches = parse_url(url.strip())
         except Exception:
             logger.exception("Failed processing URL: %s", url, stack_info=True)
             continue
 
+        for match in matches:
+            logger.info(
+                "Match %s | %s vs %s",
+                match.get("id"),
+                match.get("our_team"),
+                match.get("opponent_team"),
+            )
+            try:
+                add_match_to_casting_calendar(match)
+                add_match_to_calendar(match)
+            except Exception:
+                logger.exception(
+                    "Fehler bei Match %s\n%s",
+                    match.get("id"),
+                    json.dumps(match, indent=2, default=str)
+                )
     logger.info("Verarbeitung nach %.2fs abgeschlossen.", time.time() - start)
-    logger.info("Logfile: %s", logfile)
+    logger.info("Logfile: %s", log_file)
 
 
 if __name__ == "__main__":

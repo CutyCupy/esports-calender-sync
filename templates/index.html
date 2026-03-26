@@ -96,14 +96,17 @@
             }
 
             .sub-card {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
                 padding: 12px;
                 background: #0f0f0f;
                 border: 1px solid #222;
                 border-radius: 8px;
                 margin-bottom: 10px;
+            }
+
+            .flex-inline {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             }
 
             .match-url {
@@ -184,7 +187,7 @@
             <div class="card">
                 <h2>Matches</h2>
 
-                <form class="sub-card" hx-post="/match/add" hx-swap="none">
+                <form class="sub-card flex-inline"  hx-post="/match/add" hx-swap="none">
                     <input name="url" placeholder="Match URL..." required />
                     <button style="margin-left: 1rem" type="submit">
                         <!-- Plus Icon -->
@@ -194,7 +197,7 @@
                 </form>
 
                 {% for team in config.teams %}
-                <div class="sub-card">
+                <div class="sub-card flex-inline">
                     <div class="match-url">{{team}}</div>
 
                     <button
@@ -216,11 +219,7 @@
             <!-- LOG -->
             <div class="card">
                 <h2
-                    style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    "
+                    class="flex-inline"
                 >
                     Logs
                     <button
@@ -234,13 +233,14 @@
                 </h2>
 
                 <div
-                    class="sub-card"
                     id="logs-container"
                     hx-get="/logs"
                     hx-trigger="load"
                     hx-swap="innerHTML"
                 >
-                    <p>Logs werden geladen...</p>
+                    <div class="sub-card">
+                        <p>Logs werden geladen...</p>
+                    </div>
                 </div>
             </div>
 

@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="de">
+    <head>
+        <meta charset="UTF-8" />
+        <title>ECF Admin Panel</title>
+        <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        />
+        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+        <style>
+            body {
+                font-family: "Segoe UI", sans-serif;
+                background: #0b0b0c;
+                color: #e5e5e5;
+                margin: 0;
+            }
+
+            header {
+                background: #111;
+                padding: 15px 30px;
+                border-bottom: 2px solid #e30613;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            header h1 {
+                margin: 0;
+                font-size: 20px;
+                font-weight: 600;
+            }
+
+            .container {
+                padding: 30px;
+                max-width: 1000px;
+                margin: auto;
+            }
+
+            .card {
+                background: #151515;
+                border: 1px solid #222;
+                border-radius: 10px;
+                padding: 20px;
+                margin-bottom: 25px;
+            }
+
+            h2 {
+                margin-top: 0;
+                font-size: 16px;
+                border-bottom: 1px solid #222;
+                padding-bottom: 8px;
+            }
+
+            input {
+                padding: 10px;
+                border-radius: 6px;
+                border: 1px solid #222;
+                background: #151515;
+                color: white;
+                width: 100%;
+            }
+
+            button {
+                padding: 10px 16px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                background: #e30613;
+                color: white;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            button:hover {
+                background: #b00510;
+            }
+
+            .btn-secondary {
+                background: #222;
+            }
+
+            .btn-secondary:hover {
+                background: #333;
+            }
+
+            .btn-danger {
+                background: #8b0000;
+            }
+
+            .btn-danger:hover {
+                background: #a80000;
+            }
+
+            .sub-card {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px;
+                background: #0f0f0f;
+                border: 1px solid #222;
+                border-radius: 8px;
+                margin-bottom: 10px;
+            }
+
+            .match-url {
+                font-size: 13px;
+                color: #aaa;
+                word-break: break-all;
+            }
+
+            pre {
+                background: #0f0f0f;
+                padding: 15px;
+                border-radius: 8px;
+                overflow-x: auto;
+                font-size: 12px;
+            }
+
+            .icon {
+                width: 14px;
+                height: 14px;
+                fill: white;
+            }
+
+            /* Spinner Overlay */
+            #spinner-overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.6);
+                z-index: 1000;
+                justify-content: center;
+                align-items: center;
+                color: white;
+                font-size: 18px;
+            }
+
+            .loader {
+                width: 48px;
+                height: 48px;
+                border: 5px solid #fff;
+                border-bottom-color: #e30613;
+                border-radius: 50%;
+                display: inline-block;
+                box-sizing: border-box;
+                animation: rotation 1s linear infinite;
+            }
+
+            @keyframes rotation {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+        </style>
+    </head>
+
+    <body>
+        <header>
+            <h1>ECF Admin Panel</h1>
+
+            <button
+                id="run-btn"
+                hx-post="/run"
+                hx-swap="none"
+                onclick="showSpinner()"
+            >
+                <i class="fa-solid fa-play"></i>
+                Run
+            </button>
+        </header>
+
+        <div class="container">
+            <!-- ADD MATCH -->
+            <div class="card">
+                <h2>Matches</h2>
+
+                <form class="sub-card" hx-post="/match/add" hx-swap="none">
+                    <input name="url" placeholder="Match URL..." required />
+                    <button style="margin-left: 1rem" type="submit">
+                        <!-- Plus Icon -->
+                        <i class="fa-solid fa-add"></i>
+                        Hinzufügen
+                    </button>
+                </form>
+
+                {% for team in config.teams %}
+                <div class="sub-card">
+                    <div class="match-url">{{team}}</div>
+
+                    <button
+                        class="btn-danger"
+                        hx-post="/match/remove"
+                        hx-vals='{"url": "{{ team }}"}'
+                        hx-confirm="Wirklich löschen?"
+                        hx-swap="none"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                        Entfernen
+                    </button>
+                </div>
+                {% else %}
+                <p>Keine Matches vorhanden.</p>
+                {% endfor %}
+            </div>
+
+            <!-- LOG -->
+            <div class="card">
+                <h2
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    "
+                >
+                    Logs
+                    <button
+                        class="btn-secondary"
+                        hx-get="/logs"
+                        hx-target="#logs-container"
+                        hx-swap="innerHTML"
+                    >
+                        <i class="fa-solid fa-refresh"></i>
+                    </button>
+                </h2>
+
+                <div
+                    class="sub-card"
+                    id="logs-container"
+                    hx-get="/logs"
+                    hx-trigger="load"
+                    hx-swap="innerHTML"
+                >
+                    <p>Logs werden geladen...</p>
+                </div>
+            </div>
+
+            <!-- CONFIG -->
+            <div class="card">
+                <i class="bi bi-0-circle"></i>
+
+                <h2>Config</h2>
+                <details>
+                    <summary>JSON Config anzeigen</summary>
+                    <pre>{{ config | tojson(indent=2) }}</pre>
+                </details>
+            </div>
+        </div>
+
+        <!-- Spinner Overlay -->
+        <div id="spinner-overlay">
+            <span class="loader"></span>
+        </div>
+
+        <!-- Toast Container -->
+        <div
+            id="toast-container"
+            style="position: fixed; top: 20px; right: 20px; z-index: 1000"
+        ></div>
+
+        <script>
+            function showToast(message, type = "error") {
+                const toast = document.createElement("div");
+                toast.innerText = message;
+                toast.style.background = type === "error" ? "#e30613" : "#333";
+                toast.style.color = "white";
+                toast.style.padding = "12px 20px";
+                toast.style.marginTop = "10px";
+                toast.style.borderRadius = "6px";
+                toast.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+                toast.style.opacity = "0";
+                toast.style.transition = "opacity 0.5s";
+
+                document.getElementById("toast-container").appendChild(toast);
+
+                // Fade in
+                setTimeout(() => (toast.style.opacity = "1"), 10);
+
+                // Fade out und entfernen nach 3 Sekunden
+                setTimeout(() => {
+                    toast.style.opacity = "0";
+                    setTimeout(() => toast.remove(), 500);
+                }, 3000);
+            }
+
+            // HTMX Hook für Fehler
+            document.body.addEventListener(
+                "htmx:responseError",
+                function (evt) {
+                    const detail = evt.detail.xhr.responseText;
+                    let message = "Ein Fehler ist aufgetreten";
+                    try {
+                        const json = JSON.parse(detail);
+                        if (json.detail) message = json.detail;
+                    } catch (e) {}
+                    showToast(message, "error");
+                },
+            );
+        </script>
+
+        <script>
+            function showSpinner() {
+                document.getElementById("spinner-overlay").style.display =
+                    "flex";
+            }
+
+            // Hide spinner after HTMX request completes
+            document.body.addEventListener("htmx:afterRequest", function (evt) {
+                document.getElementById("spinner-overlay").style.display =
+                    "none";
+                if (evt.detail.successful) {
+                    switch (evt.detail.pathInfo.requestPath) {
+                        case "/run":
+                        case "/match/add":
+                        case "/match/remove":
+                            window.location.reload();
+                            break;
+                    }
+                }
+            });
+        </script>
+    </body>
+</html>

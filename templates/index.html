@@ -16,6 +16,10 @@
                 background: #0b0b0c;
                 color: #e5e5e5;
                 margin: 0;
+
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
             }
 
             header {
@@ -34,8 +38,15 @@
             }
 
             .container {
-                padding: 30px;
+                flex: 1 1 auto;
+                overflow-y: auto;
+
+                justify-content: center;
+            }
+
+            .content {
                 max-width: 1000px;
+                padding: 2rem;
                 margin: auto;
             }
 
@@ -96,14 +107,17 @@
             }
 
             .sub-card {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
                 padding: 12px;
                 background: #0f0f0f;
                 border: 1px solid #222;
                 border-radius: 8px;
                 margin-bottom: 10px;
+            }
+
+            .flex-inline {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
             }
 
             .match-url {
@@ -178,81 +192,59 @@
                 Run
             </button>
         </header>
-
         <div class="container">
-            <!-- ADD MATCH -->
-            <div class="card">
-                <h2>Matches</h2>
+            <div class="content">
+                <div class="card">
+                    <h2 class="flex-inline">
+                        Matches
+                        <button
+                            class="btn-secondary"
+                            hx-get="/matches"
+                            hx-target="#matches-container"
+                            hx-swap="innerHTML"
+                        >
+                            <i class="fa-solid fa-refresh"></i>
+                        </button>
+                    </h2>
 
-                <form class="sub-card" hx-post="/match/add" hx-swap="none">
-                    <input name="url" placeholder="Match URL..." required />
-                    <button style="margin-left: 1rem" type="submit">
-                        <!-- Plus Icon -->
-                        <i class="fa-solid fa-add"></i>
-                        Hinzufügen
-                    </button>
-                </form>
-
-                {% for team in config.teams %}
-                <div class="sub-card">
-                    <div class="match-url">{{team}}</div>
-
-                    <button
-                        class="btn-danger"
-                        hx-post="/match/remove"
-                        hx-vals='{"url": "{{ team }}"}'
-                        hx-confirm="Wirklich löschen?"
-                        hx-swap="none"
-                    >
-                        <i class="fa-solid fa-trash"></i>
-                        Entfernen
-                    </button>
-                </div>
-                {% else %}
-                <p>Keine Matches vorhanden.</p>
-                {% endfor %}
-            </div>
-
-            <!-- LOG -->
-            <div class="card">
-                <h2
-                    style="
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                    "
-                >
-                    Logs
-                    <button
-                        class="btn-secondary"
-                        hx-get="/logs"
-                        hx-target="#logs-container"
+                    
+                    <div
+                        id="matches-container"
+                        hx-get="/matches"
+                        hx-trigger="load"
                         hx-swap="innerHTML"
                     >
-                        <i class="fa-solid fa-refresh"></i>
-                    </button>
-                </h2>
+                        <div class="sub-card">
+                            <p>Matches werden geladen...</p>
+                        </div>
+                    </div>
 
-                <div
-                    class="sub-card"
-                    id="logs-container"
-                    hx-get="/logs"
-                    hx-trigger="load"
-                    hx-swap="innerHTML"
-                >
-                    <p>Logs werden geladen...</p>
                 </div>
-            </div>
 
-            <!-- CONFIG -->
-            <div class="card">
-                <i class="bi bi-0-circle"></i>
+                <div class="card">
+                    <h2 class="flex-inline">
+                        Logs
+                        <button
+                            class="btn-secondary"
+                            hx-get="/logs"
+                            hx-target="#logs-container"
+                            hx-swap="innerHTML"
+                        >
+                            <i class="fa-solid fa-refresh"></i>
+                        </button>
+                    </h2>
 
-                <h2>Config</h2>
-                <details>
-                    <summary>JSON Config anzeigen</summary>
-                    <pre>{{ config | tojson(indent=2) }}</pre>
-                </details>
+                    <div
+                        id="logs-container"
+                        hx-get="/logs"
+                        hx-trigger="load"
+                        hx-swap="innerHTML"
+                    >
+                        <div class="sub-card">
+                            <p>Logs werden geladen...</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -317,15 +309,6 @@
             document.body.addEventListener("htmx:afterRequest", function (evt) {
                 document.getElementById("spinner-overlay").style.display =
                     "none";
-                if (evt.detail.successful) {
-                    switch (evt.detail.pathInfo.requestPath) {
-                        case "/run":
-                        case "/match/add":
-                        case "/match/remove":
-                            window.location.reload();
-                            break;
-                    }
-                }
             });
         </script>
     </body>

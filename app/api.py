@@ -22,17 +22,21 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 def ui(request: Request):
-    cfg = main.load_config()
-    del cfg["primeleague_token"]
-    del cfg["casting-sheet-id"]
-    with open("cron.log", "r", encoding="utf-8") as f:
-        log = f.read()
     return templates.TemplateResponse(request, name="index.html", context={
         "request": request,
-        "log": log,
-        "config": cfg
+    })
+    
+def get_matches_response(request: Request) -> HTMLResponse:
+    cfg = main.load_config()
+    
+    return templates.TemplateResponse(request, "matches.html", {
+        "request": request,
+        "matches": cfg["teams"],
     })
 
+@app.get("/matches", response_class=HTMLResponse)
+def get_matches(request: Request):
+    return get_matches_response(request)
 
 @app.get("/logs", response_class=HTMLResponse)
 def get_logs(request: Request):
@@ -119,8 +123,8 @@ def update_config(cfg: dict):
     return {"status": "ok"}
 
 
-@app.post("/match/add")
-def add_match(url: str = Form()):
+@app.post("/match/add", response_class=HTMLResponse)
+def add_match(request: Request, url: str = Form()):
     parser = main.get_parser(url)
     if not parser:
         raise HTTPException(status_code=400, detail=f"Die URL '{url}' ist keine gültige URL für die Konfiguration.")
@@ -132,14 +136,14 @@ def add_match(url: str = Form()):
     teams.append(url)
     cfg["teams"] = teams
     main.save_config(cfg)
-    return {"status": "added", "url": url}
+    return get_matches_response(request)
 
-@app.post("/match/remove")
-def remove_match(url: str = Form()):
+@app.post("/match/remove", response_class=HTMLResponse)
+def remove_match(request: Request, url: str = Form()):
     cfg = main.load_config()
     cfg["teams"] = [m for m in cfg.get("teams", []) if m != url]
     main.save_config(cfg)
-    return {"status": "removed"}
+    return get_matches_response(request)
 
 
 @app.post("/run")

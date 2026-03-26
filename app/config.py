@@ -1,18 +1,39 @@
 import os
 
 import yaml
+from pydantic import BaseModel
+from pathlib import Path
+
+CONFIG_PATH = Path(__file__).parent.parent / "config" / "config.yaml"
 
 
-CONFIG_PATH = os.path.join("config", "config.yaml")
+class CalendarConfig(BaseModel):
+    id: str
+    timezone: str
 
+class CastingCalendarConfig(BaseModel):
+    sheet_id: str
 
-def load_config():
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
-        return yaml.safe_load(f)
+class Config(BaseModel):
+    prefix: str
+    primeleague_token: str
+    
+    calendar: CalendarConfig
+    casting_calendar: CastingCalendarConfig
+    teams: list[str]
+    
+    @classmethod
+    def load(cls) -> "Config":
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
 
-def save_config(cfg):
-    with open(CONFIG_PATH, "w") as f:
-        yaml.dump(cfg, f, indent=2)
+        return cls(**data)
 
-
-CONFIG = load_config()
+    def save(self):
+        with open(CONFIG_PATH, "w") as f:
+            yaml.dump(
+                self.model_dump(),
+                f,
+                indent=2,
+                allow_unicode=True
+            )

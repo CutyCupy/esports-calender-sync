@@ -5,9 +5,28 @@ from typing import Optional
 
 class Game(Enum):
     LOL = "LoL"
+    OW = "OW"
     RL = "RL"
     R6 = "R6"
-
+    
+    def get_google_color_id(self) -> str:
+        match self:
+            case Game.LOL: 
+                return "5"
+            case Game.RL: 
+                return "1"
+            case Game.OW: 
+                return "6"
+            case Game.R6: 
+                return "4"
+            case _:
+                return ""
+    
+    
+@dataclass
+class CastInfo:
+    casters: list[str]
+    remark: str
 
 @dataclass
 class Match:
@@ -15,8 +34,8 @@ class Match:
     our_team: str
     opponent_team: str
     id: str
-    match_url: str
+    url: str
     ts: datetime
-    match_id: Optional[str]
     our_score: str
     opponent_score: str
+    cast_info: Optional[CastInfo]

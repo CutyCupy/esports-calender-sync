@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 import logging
 import os
+from pathlib import Path
 import shutil
 
+LOGS_FOLDER = Path(__file__).parent.parent / "logs"
 
 def cleanup_logs(days=7):
     base_dir = "logs"
@@ -30,7 +32,7 @@ def setup_run_logger():
     date_str = now.strftime("%Y-%m-%d")
     time_str = now.strftime("%H-%M-%S")
 
-    log_dir = os.path.join("logs", date_str)
+    log_dir = os.path.join(LOGS_FOLDER, date_str)
     os.makedirs(log_dir, exist_ok=True)
 
     log_file = os.path.join(log_dir, f"run_{time_str}.log")
@@ -53,5 +55,3 @@ def setup_run_logger():
     logger.addHandler(ch)
 
     return logger, log_file
-
-logger, log_file = setup_run_logger()

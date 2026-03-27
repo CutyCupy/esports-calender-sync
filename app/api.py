@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from time import sleep
 
 from fastapi import HTTPException, FastAPI, Request, Form
@@ -9,40 +10,55 @@ from pathlib import Path
 import re
 from datetime import datetime
 
-import main
+from logger import LOGS_FOLDER
+from config import Config  # type: ignore
+from parser import get_parser
 
 app = FastAPI()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 # --- API Endpoints ---
 
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
-def ui(request: Request):
+def ui(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(request, name="index.html", context={
         "request": request,
     })
     
 def get_matches_response(request: Request) -> HTMLResponse:
-    cfg = main.load_config()
-    
+    cfg = Config.load()
     return templates.TemplateResponse(request, "matches.html", {
         "request": request,
-        "matches": cfg["teams"],
+        "matches": cfg.teams,
     })
 
 @app.get("/matches", response_class=HTMLResponse)
-def get_matches(request: Request):
+def get_matches(request: Request) -> HTMLResponse:
     return get_matches_response(request)
 
-@app.get("/logs", response_class=HTMLResponse)
-def get_logs(request: Request):
-    base_dir = Path("logs")
 
-    log_groups = []
+@dataclass
+class LogResult:
+    filename: str
+    path: str
+    timestamp: datetime
+    warnings: int
+    errors: int
+    duration: str
+    
+@dataclass
+class LogResultGroup:
+    date: str
+    logs: list[LogResult]
+
+@app.get("/logs", response_class=HTMLResponse)
+def get_logs(request: Request) -> HTMLResponse:
+    base_dir = Path(LOGS_FOLDER)
+
+    log_groups: list[LogResultGroup] = []
 
     if not base_dir.exists():
         return templates.TemplateResponse(
@@ -50,16 +66,19 @@ def get_logs(request: Request):
             "logs.html",
             {"request": request, "log_groups": []},
         )
+    print(base_dir)
 
     # Datumsordner sortieren (neu -> alt)
     for date_dir in sorted(base_dir.iterdir(), reverse=True):
+        print(date_dir)
         if not date_dir.is_dir():
             continue
 
-        runs = []
+        group = LogResultGroup(date=date_dir.name, logs=[])
 
         # Logfiles sortieren (neu -> alt)
         for log_file in sorted(date_dir.glob("*.log"), reverse=True):
+            print(log_file)
             try:
                 content = log_file.read_text(encoding="utf-8")
 
@@ -77,22 +96,20 @@ def get_logs(request: Request):
                     "%Y-%m-%d %H-%M-%S",
                 )
 
-                runs.append({
-                    "filename": log_file.name,
-                    "path": str(log_file),
-                    "timestamp": timestamp,
-                    "warnings": warnings,
-                    "errors": errors,
-                    "duration": duration,
-                })
+                group.logs.append(LogResult(
+                    filename=log_file.name,
+                    path=str(log_file),
+                    timestamp=timestamp,
+                    warnings=warnings,
+                    errors=errors,
+                    duration=duration,
+                ))
 
-            except Exception:
+            except Exception as e:
+                print(e)
                 continue
 
-        log_groups.append({
-            "date": date_dir.name,
-            "runs": runs,
-        })
+        log_groups.append(group)
 
     return templates.TemplateResponse(
         request,
@@ -103,13 +120,12 @@ def get_logs(request: Request):
         },
     )
 
-BASE_LOG_DIR = Path("logs").resolve()
 
 @app.get("/logs/view")
 def view_log(path: str):
     file_path = Path(path).resolve()
 
-    if not str(file_path).startswith(str(BASE_LOG_DIR)):
+    if not str(file_path).startswith(str(LOGS_FOLDER)):
         return PlainTextResponse("Forbidden", status_code=403)
 
     if not file_path.exists():
@@ -118,31 +134,29 @@ def view_log(path: str):
     return PlainTextResponse(file_path.read_text(encoding="utf-8"))
 
 @app.post("/config")
-def update_config(cfg: dict):
-    main.save_config(cfg)
+def update_config(cfg: Config):
+    cfg.save()
     return {"status": "ok"}
 
 
 @app.post("/match/add", response_class=HTMLResponse)
 def add_match(request: Request, url: str = Form()):
-    parser = main.get_parser(url)
+    parser = get_parser(url)
     if not parser:
         raise HTTPException(status_code=400, detail=f"Die URL '{url}' ist keine gültige URL für die Konfiguration.")
     
-    cfg = main.load_config()
-    teams = cfg.get("teams", [])
-    if url in teams:
+    cfg = Config.load()
+    if url in cfg.teams:
         raise HTTPException(status_code=400, detail=f"Die URL '{url}' ist bereits Teil der Konfiguration.")        
-    teams.append(url)
-    cfg["teams"] = teams
-    main.save_config(cfg)
+    cfg.teams.append(url)
+    cfg.save()
     return get_matches_response(request)
 
 @app.post("/match/remove", response_class=HTMLResponse)
 def remove_match(request: Request, url: str = Form()):
-    cfg = main.load_config()
-    cfg["teams"] = [m for m in cfg.get("teams", []) if m != url]
-    main.save_config(cfg)
+    cfg = Config.load()
+    cfg.teams =  [m for m in cfg.teams if m != url]
+    cfg.save()
     return get_matches_response(request)
 
 

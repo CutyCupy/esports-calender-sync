@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from time import sleep
 
-from fastapi import HTTPException, FastAPI, Request, Form
+from fastapi import HTTPException, FastAPI, Query, Request, Form
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -24,8 +24,19 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 def ui(request: Request) -> HTMLResponse:
+    cfg = Config.load()
     return templates.TemplateResponse(request, name="index.html", context={
         "request": request,
+        "docs": [
+            {
+                "name": "Casting Kalender",
+                "url": f"https://docs.google.com/spreadsheets/d/{cfg.casting_calendar.sheet_id}"
+            },
+            {
+                "name": "Google Kalender",
+                "url": f"https://calendar.google.com/calendar/embed?src={cfg.calendar.id}&ctz={cfg.calendar.timezone}"
+            }
+        ]
     })
     
 def get_matches_response(request: Request) -> HTMLResponse:
@@ -159,6 +170,21 @@ def remove_match(request: Request, url: str = Form()):
     cfg.save()
     return get_matches_response(request)
 
+@app.get("/preview", response_class=HTMLResponse)
+def preview(
+    request: Request,
+    base_url: str = Query(...),
+    is_preview: bool = Query(False)
+):
+    suffix = ""
+    if "docs.google.com" in base_url:
+        suffix = "/preview" if is_preview else "/edit"
+    final_url = base_url.rstrip("/") + suffix
+
+    return templates.TemplateResponse(request, name="preview.html", context={
+        "request": request,
+        "url": final_url
+    })
 
 @app.post("/run")
 def run_processing():

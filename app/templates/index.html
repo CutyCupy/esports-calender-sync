@@ -1,315 +1,522 @@
 <!doctype html>
 <html lang="de">
-    <head>
-        <meta charset="UTF-8" />
-        <title>ECF Admin Panel</title>
-        <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
-        <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-        />
-        <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <title>ECF Admin Panel</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
-        <style>
-            body {
-                font-family: "Segoe UI", sans-serif;
-                background: #0b0b0c;
-                color: #e5e5e5;
-                margin: 0;
+    <style>
+      body {
+        font-family: "Segoe UI", sans-serif;
+        background: #0b0b0c;
+        color: #e5e5e5;
+        margin: 0;
 
-                display: flex;
-                flex-direction: column;
-                height: 100vh;
-            }
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
 
-            header {
-                background: #111;
-                padding: 15px 30px;
-                border-bottom: 2px solid #e30613;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
+      header {
+        background: #111;
+        padding: 15px 30px;
+        border-bottom: 2px solid #e30613;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-            header h1 {
-                margin: 0;
-                font-size: 20px;
-                font-weight: 600;
-            }
+      header h1 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 600;
+      }
 
-            .container {
-                flex: 1 1 auto;
-                overflow-y: auto;
+      .container {
+        flex: 1 1 auto;
+        overflow-y: auto;
+      }
 
-                justify-content: center;
-            }
+      .content {
+        max-width: 1000px;
+        padding: 2rem;
+        margin: auto;
+      }
 
-            .content {
-                max-width: 1000px;
-                padding: 2rem;
-                margin: auto;
-            }
+      .card {
+        background: #151515;
+        border: 1px solid #222;
+        border-radius: 10px;
+        padding: 20px;
+        margin-bottom: 25px;
+      }
 
-            .card {
-                background: #151515;
-                border: 1px solid #222;
-                border-radius: 10px;
-                padding: 20px;
-                margin-bottom: 25px;
-            }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
-            h2 {
-                margin-top: 0;
-                font-size: 16px;
-                border-bottom: 1px solid #222;
-                padding-bottom: 8px;
-            }
+      .card-body {
+        margin-top: 16px;
+      }
 
-            input {
-                padding: 10px;
-                border-radius: 6px;
-                border: 1px solid #222;
-                background: #151515;
-                color: white;
-                width: 100%;
-            }
+      /* remove default details arrow */
+      .card summary {
+        list-style: none;
+        cursor: default;
+      }
 
-            button {
-                padding: 10px 16px;
-                border-radius: 6px;
-                border: none;
-                cursor: pointer;
-                background: #e30613;
-                color: white;
-                display: inline-flex;
-                align-items: center;
-                gap: 6px;
-            }
+      .card summary::-webkit-details-marker {
+        display: none;
+      }
 
-            button:hover {
-                background: #b00510;
-            }
+      h2 {
+        font-size: 16px;
+        margin: 0;
+      }
 
-            .btn-secondary {
-                background: #222;
-            }
+      .form-row {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+      }
 
-            .btn-secondary:hover {
-                background: #333;
-            }
+      /* --- Select --- */
+      .select {
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: 1px solid #222;
+        background: #151515;
+        color: #e5e5e5;
+        min-width: 220px;
+        cursor: pointer;
 
-            .btn-danger {
-                background: #8b0000;
-            }
+        appearance: none;
+        background-image:
+          linear-gradient(45deg, transparent 50%, #aaa 50%),
+          linear-gradient(135deg, #aaa 50%, transparent 50%);
+        background-position:
+          calc(100% - 16px) calc(50% - 3px),
+          calc(100% - 10px) calc(50% - 3px);
+        background-size: 6px 6px;
+        background-repeat: no-repeat;
 
-            .btn-danger:hover {
-                background: #a80000;
-            }
+        transition:
+          border 0.2s,
+          box-shadow 0.2s;
+      }
 
-            .sub-card {
-                padding: 12px;
-                background: #0f0f0f;
-                border: 1px solid #222;
-                border-radius: 8px;
-                margin-bottom: 10px;
-            }
+      .select:hover {
+        border-color: #333;
+      }
 
-            .flex-inline {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
+      .select:focus {
+        outline: none;
+        border-color: #e30613;
+        box-shadow: 0 0 0 1px #e30613;
+      }
 
-            .match-url {
-                font-size: 13px;
-                color: #aaa;
-                word-break: break-all;
-            }
+      /* --- Toggle Checkbox --- */
+      .checkbox {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        user-select: none;
+      }
 
-            pre {
-                background: #0f0f0f;
-                padding: 15px;
-                border-radius: 8px;
-                overflow-x: auto;
-                font-size: 12px;
-            }
+      .checkbox input {
+        display: none;
+      }
 
-            .icon {
-                width: 14px;
-                height: 14px;
-                fill: white;
-            }
+      .toggle {
+        width: 40px;
+        height: 20px;
+        background: #222;
+        border-radius: 999px;
+        position: relative;
+        transition: background 0.2s;
+      }
 
-            /* Spinner Overlay */
-            #spinner-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.6);
-                z-index: 1000;
-                justify-content: center;
-                align-items: center;
-                color: white;
-                font-size: 18px;
-            }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        background: #aaa;
+        border-radius: 50%;
+        top: 2px;
+        left: 2px;
+        transition: all 0.2s;
+      }
 
-            .loader {
-                width: 48px;
-                height: 48px;
-                border: 5px solid #fff;
-                border-bottom-color: #e30613;
-                border-radius: 50%;
-                display: inline-block;
-                box-sizing: border-box;
-                animation: rotation 1s linear infinite;
-            }
+      .checkbox input:checked + .toggle {
+        background: #e30613;
+      }
 
-            @keyframes rotation {
-                0% {
-                    transform: rotate(0deg);
-                }
-                100% {
-                    transform: rotate(360deg);
-                }
-            }
-        </style>
-    </head>
+      .checkbox input:checked + .toggle::after {
+        left: 22px;
+        background: #fff;
+      }
 
-    <body>
-        <header>
-            <h1>ECF Admin Panel</h1>
+      .checkbox span {
+        font-size: 14px;
+        color: #ccc;
+      }
 
-            <button
-                id="run-btn"
-                hx-post="/run"
-                hx-swap="none"
-                onclick="showSpinner()"
-            >
-                <i class="fa-solid fa-play"></i>
-                Run
-            </button>
-        </header>
-        <div class="container">
-            <div class="content">
-                <div class="card">
-                    <h2 class="flex-inline">
-                        Matches
-                        <button
-                            class="btn-secondary"
-                            hx-get="/matches"
-                            hx-target="#matches-container"
-                            hx-swap="innerHTML"
-                        >
-                            <i class="fa-solid fa-refresh"></i>
-                        </button>
-                    </h2>
+      .checkbox:hover .toggle {
+        background: #333;
+      }
 
-                    
-                    <div
-                        id="matches-container"
-                        hx-get="/matches"
-                        hx-trigger="load"
-                        hx-swap="innerHTML"
-                    >
-                        <div class="sub-card">
-                            <p>Matches werden geladen...</p>
-                        </div>
-                    </div>
+      button {
+        padding: 10px 16px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
 
-                </div>
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
 
-                <div class="card">
-                    <h2 class="flex-inline">
-                        Logs
-                        <button
-                            class="btn-secondary"
-                            hx-get="/logs"
-                            hx-target="#logs-container"
-                            hx-swap="innerHTML"
-                        >
-                            <i class="fa-solid fa-refresh"></i>
-                        </button>
-                    </h2>
+        background: #e30613;
+        color: white;
+      }
 
-                    <div
-                        id="logs-container"
-                        hx-get="/logs"
-                        hx-trigger="load"
-                        hx-swap="innerHTML"
-                    >
-                        <div class="sub-card">
-                            <p>Logs werden geladen...</p>
-                        </div>
-                    </div>
-                </div>
+      button:hover {
+        background: #b00510;
+      }
+
+      .btn-secondary {
+        background: #222;
+      }
+
+      .btn-secondary:hover {
+        background: #333;
+      }
+
+      .btn-danger {
+        background: #8b0000;
+      }
+
+      .btn-danger:hover {
+        background: #a80000;
+      }
+
+      /* --- Icon Button --- */
+      .icon-btn {
+        background: transparent;
+        border: none;
+        padding: 6px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .icon-btn:hover {
+        background: #222;
+        border-radius: 6px;
+      }
+
+      .icon-btn i {
+        font-size: 14px;
+        color: #aaa;
+        transition:
+          transform 0.2s,
+          color 0.2s;
+      }
+
+      .icon-btn:hover i {
+        color: #fff;
+      }
+
+      details[open] .icon-btn i {
+        transform: rotate(180deg);
+      }
+
+      .flex-inline {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .text-field {
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #222;
+        background: #151515;
+        color: white;
+        width: 100%;
+      }
+
+      .sub-card {
+        padding: 12px;
+        background: #0f0f0f;
+        border: 1px solid #222;
+        border-radius: 8px;
+        margin-bottom: 10px;
+      }
+
+      .match-url {
+        font-size: 13px;
+        color: #aaa;
+        word-break: break-all;
+      }
+
+      pre {
+        background: #0f0f0f;
+        padding: 15px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 12px;
+      }
+
+      .icon {
+        width: 14px;
+        height: 14px;
+        fill: white;
+      }
+
+      #spinner-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+
+        justify-content: center;
+        align-items: center;
+      }
+
+      .loader {
+        width: 48px;
+        height: 48px;
+        border: 5px solid #fff;
+        border-bottom-color: #e30613;
+        border-radius: 50%;
+        animation: rotation 1s linear infinite;
+      }
+
+      @keyframes rotation {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>ECF Admin Panel</h1>
+
+      <button
+        id="run-btn"
+        hx-post="/run"
+        hx-swap="none"
+        onclick="showSpinner()"
+      >
+        <i class="fa-solid fa-play"></i>
+        Run
+      </button>
+    </header>
+    <div class="container">
+      <div class="content">
+        <!-- Vorschau -->
+        <details class="card" id="card-preview">
+          <summary class="card-header">
+            <h2>Vorschau</h2>
+
+            <div class="flex-inline" style="gap: 1rem">
+              <button
+                class="icon-btn toggle-btn"
+                onclick="toggleDetails('card-preview')"
+                type="button"
+                aria-label="Toggle Vorschau"
+              >
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
             </div>
-        </div>
+          </summary>
 
-        <!-- Spinner Overlay -->
-        <div id="spinner-overlay">
-            <span class="loader"></span>
-        </div>
+          <div class="card-body">
+            <div class="form-row">
+              <select name="base_url" id="base_url" class="select">
+                {% for doc in docs %}
+                <option value="{{doc.url}}">{{doc.name}}</option>
+                {% endfor %}
+              </select>
 
-        <!-- Toast Container -->
-        <div
-            id="toast-container"
-            style="position: fixed; top: 20px; right: 20px; z-index: 1000"
-        ></div>
+              <label class="checkbox">
+                <input type="checkbox" name="is_preview" id="is_preview" />
+                <div class="toggle"></div>
+                <span>Als Vorschau öffnen</span>
+              </label>
+            </div>
 
-        <script>
-            function showToast(message, type = "error") {
-                const toast = document.createElement("div");
-                toast.innerText = message;
-                toast.style.background = type === "error" ? "#e30613" : "#333";
-                toast.style.color = "white";
-                toast.style.padding = "12px 20px";
-                toast.style.marginTop = "10px";
-                toast.style.borderRadius = "6px";
-                toast.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-                toast.style.opacity = "0";
-                toast.style.transition = "opacity 0.5s";
+            <div
+              id="preview"
+              hx-get="/preview"
+              hx-trigger="load, change from:#base_url, change from:#is_preview"
+              hx-target="#preview"
+              hx-include="#base_url, #is_preview"
+              hx-swap="innerHTML"
+            ></div>
+          </div>
+        </details>
 
-                document.getElementById("toast-container").appendChild(toast);
+        <!-- Matches -->
+        <details class="card" open id="card-matches">
+          <summary class="card-header flex-inline">
+            <h2>Matches</h2>
+            <div class="flex-inline" style="gap: 1rem">
+              <button
+                class="btn-secondary"
+                onclick="event.preventDefault()"
+                hx-get="/matches"
+                hx-target="#matches-container"
+                hx-swap="innerHTML"
+              >
+                <i class="fa-solid fa-refresh"></i>
+              </button>
+              <button
+                class="icon-btn toggle-btn"
+                onclick="toggleDetails('card-matches')"
+                type="button"
+                aria-label="Toggle Vorschau"
+              >
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+            </div>
+          </summary>
 
-                // Fade in
-                setTimeout(() => (toast.style.opacity = "1"), 10);
+          <div class="card-body">
+            <div
+              id="matches-container"
+              hx-get="/matches"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <div class="sub-card">
+                <p>Matches werden geladen...</p>
+              </div>
+            </div>
+          </div>
+        </details>
 
-                // Fade out und entfernen nach 3 Sekunden
-                setTimeout(() => {
-                    toast.style.opacity = "0";
-                    setTimeout(() => toast.remove(), 500);
-                }, 3000);
-            }
+        <!-- Logs -->
+        <details class="card" id="card-logs">
+          <summary class="card-header flex-inline">
+            <h2>Logs</h2>
+            <div class="flex-inline" style="gap: 1rem">
+              <button
+                class="btn-secondary"
+                onclick="event.preventDefault()"
+                hx-get="/logs"
+                hx-target="#logs-container"
+                hx-swap="innerHTML"
+              >
+                <i class="fa-solid fa-refresh"></i>
+              </button>
+              <button
+                class="icon-btn toggle-btn"
+                onclick="toggleDetails('card-logs')"
+                type="button"
+                aria-label="Toggle Logs"
+              >
+                <i class="fa-solid fa-chevron-down"></i>
+              </button>
+            </div>
+          </summary>
 
-            // HTMX Hook für Fehler
-            document.body.addEventListener(
-                "htmx:responseError",
-                function (evt) {
-                    const detail = evt.detail.xhr.responseText;
-                    let message = "Ein Fehler ist aufgetreten";
-                    try {
-                        const json = JSON.parse(detail);
-                        if (json.detail) message = json.detail;
-                    } catch (e) {}
-                    showToast(message, "error");
-                },
-            );
-        </script>
+          <div class="card-body">
+            <div
+              id="logs-container"
+              hx-get="/logs"
+              hx-trigger="load"
+              hx-swap="innerHTML"
+            >
+              <div class="sub-card">
+                <p>Logs werden geladen...</p>
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+    </div>
 
-        <script>
-            function showSpinner() {
-                document.getElementById("spinner-overlay").style.display =
-                    "flex";
-            }
+    <!-- Spinner Overlay -->
+    <div id="spinner-overlay">
+      <span class="loader"></span>
+    </div>
 
-            // Hide spinner after HTMX request completes
-            document.body.addEventListener("htmx:afterRequest", function (evt) {
-                document.getElementById("spinner-overlay").style.display =
-                    "none";
-            });
-        </script>
-    </body>
+    <!-- Toast Container -->
+    <div
+      id="toast-container"
+      style="position: fixed; top: 20px; right: 20px; z-index: 1000"
+    ></div>
+
+    <script>
+      function showToast(message, type = "error") {
+        const toast = document.createElement("div");
+        toast.innerText = message;
+        toast.style.background = type === "error" ? "#e30613" : "#333";
+        toast.style.color = "white";
+        toast.style.padding = "12px 20px";
+        toast.style.marginTop = "10px";
+        toast.style.borderRadius = "6px";
+        toast.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
+        toast.style.opacity = "0";
+        toast.style.transition = "opacity 0.5s";
+
+        document.getElementById("toast-container").appendChild(toast);
+
+        // Fade in
+        setTimeout(() => (toast.style.opacity = "1"), 10);
+
+        // Fade out und entfernen nach 3 Sekunden
+        setTimeout(() => {
+          toast.style.opacity = "0";
+          setTimeout(() => toast.remove(), 500);
+        }, 3000);
+      }
+
+      // HTMX Hook für Fehler
+      document.body.addEventListener("htmx:responseError", function (evt) {
+        const detail = evt.detail.xhr.responseText;
+        let message = "Ein Fehler ist aufgetreten";
+        try {
+          const json = JSON.parse(detail);
+          if (json.detail) message = json.detail;
+        } catch (e) {}
+        showToast(message, "error");
+      });
+    </script>
+
+    <script>
+      function showSpinner() {
+        document.getElementById("spinner-overlay").style.display = "flex";
+      }
+
+      // Hide spinner after HTMX request completes
+      document.body.addEventListener("htmx:afterRequest", function (evt) {
+        document.getElementById("spinner-overlay").style.display = "none";
+      });
+    </script>
+
+    <script>
+      function toggleDetails(id) {
+        const el = document.getElementById(id);
+        el.open = !el.open;
+      }
+    </script>
+  </body>
 </html>

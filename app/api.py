@@ -13,6 +13,7 @@ from datetime import datetime
 from logger import LOGS_FOLDER
 from config import Config  # type: ignore
 from parser import get_parser
+from main import run
 
 app = FastAPI()
 
@@ -158,7 +159,8 @@ def add_match(request: Request, url: str = Form()):
     
     cfg = Config.load()
     if url in cfg.teams:
-        raise HTTPException(status_code=400, detail=f"Die URL '{url}' ist bereits Teil der Konfiguration.")        
+        raise HTTPException(status_code=400, detail=f"Die URL '{url}' ist bereits Teil der Konfiguration.")  
+          
     cfg.teams.append(url)
     cfg.save()
     return get_matches_response(request)
@@ -187,7 +189,7 @@ def preview(
     })
 
 @app.post("/run")
-def run_processing():
-    from main import main
-    main()
+def run_processing(team: str | None = None):
+    if not run(team):
+        raise HTTPException(status_code=400, detail=f"Bei der Verarbeitung ist ein Fehler aufgetreten. Weitere Informationen findet man im log.")
     

@@ -20,7 +20,7 @@ def run(team = None) -> bool:
     teams = [team] if team else ctx.config.teams
     result = True
     
-    cleanup_logs(days=7)
+    cleanup_logs(days=3)
     start = time.time()
     
     logger.info("Start der Verarbeitung")

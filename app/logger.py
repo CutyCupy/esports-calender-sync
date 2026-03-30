@@ -6,7 +6,7 @@ import shutil
 
 LOGS_FOLDER = Path(__file__).parent.parent / "logs"
 
-def cleanup_logs(days=7):
+def cleanup_logs(days: int):
     base_dir = "logs"
     now = datetime.now()
 

@@ -210,6 +210,15 @@
         background: #a80000;
       }
 
+      .btn-success {
+        background: #1f7a3a; /* dunkles, entsättigtes grün */
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #249447;
+      }
+
       /* --- Icon Button --- */
       .icon-btn {
         background: transparent;
@@ -320,12 +329,11 @@
 
       <button
         id="run-btn"
+        class="btn-success"
         hx-post="/run"
         hx-swap="none"
-        onclick="showSpinner()"
       >
-        <i class="fa-solid fa-play"></i>
-        Run
+        <i class="fa-solid fa-play" style="font-size: 24px"></i>
       </button>
     </header>
     <div class="container">
@@ -502,9 +510,9 @@
     </script>
 
     <script>
-      function showSpinner() {
+      document.body.addEventListener("htmx:beforeRequest", function (evt) {
         document.getElementById("spinner-overlay").style.display = "flex";
-      }
+      });
 
       // Hide spinner after HTMX request completes
       document.body.addEventListener("htmx:afterRequest", function (evt) {

@@ -1,31 +1,34 @@
 <form
-    class="sub-card flex-inline"
-    hx-post="/match/add"
-    hx-target="#matches-container"
-    hx-swap="innerHTML"
+  class="sub-card flex-inline"
+  hx-post="/match/add"
+  hx-target="#matches-container"
+  hx-swap="innerHTML"
 >
-    <input class="text-field" name="url" placeholder="Match URL..." required />
-    <button style="margin-left: 1rem" type="submit">
-        <i class="fa-solid fa-add"></i>
-        Hinzufügen
-    </button>
+  <input class="text-field" name="url" placeholder="Match URL..." required />
+  <button class="btn-success" style="margin-left: 1rem" type="submit">
+    <i class="fa-solid fa-add"></i>
+  </button>
 </form>
 
 {% for match in matches %}
 <div class="sub-card flex-inline">
-    <div class="match-url">{{match}}</div>
+  <div class="match-url">{{match}}</div>
 
-    <button
-        class="btn-danger"
-        hx-post="/match/remove"
-        hx-vals='{"url": "{{ match }}"}'
-        hx-confirm="Wirklich löschen?"
-        hx-target="#matches-container"
-        hx-swap="innerHTML"
-    >
-        <i class="fa-solid fa-trash"></i>
-        Entfernen
+  <div class="flex-inline" style="gap: 1rem">
+    <button class="btn-success" hx-post="/run?team={{match}}" hx-swap="none">
+      <i class="fa-solid fa-play"></i>
     </button>
+    <button
+      class="btn-danger"
+      hx-post="/match/remove"
+      hx-vals='{"url": "{{ match }}"}'
+      hx-confirm="Wirklich löschen?"
+      hx-target="#matches-container"
+      hx-swap="innerHTML"
+    >
+      <i class="fa-solid fa-trash"></i>
+    </button>
+  </div>
 </div>
 {% else %}
 <p>Keine Matches vorhanden.</p>

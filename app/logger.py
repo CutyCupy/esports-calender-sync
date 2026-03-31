@@ -6,7 +6,7 @@ import shutil
 
 LOGS_FOLDER = Path(__file__).parent.parent / "logs"
 
-def cleanup_logs(days=7):
+def cleanup_logs(days: int = 3):
     now = datetime.now()
 
     if not os.path.exists(LOGS_FOLDER):

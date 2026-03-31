@@ -11,10 +11,10 @@ from parser import parse_url
 
 
 def run(team = None) -> bool:
-    logger, log_file = setup_run_logger()
+    logger = setup_run_logger()
     
     ctx = Context(
-        logger=logger, log_file=log_file, config=Config.load()
+        logger=logger, config=Config.load()
     )
     
     teams = [team] if team else ctx.config.teams
@@ -53,7 +53,6 @@ def run(team = None) -> bool:
         
     commit_casting_calendar(ctx)
     logger.info("Verarbeitung nach %.2fs abgeschlossen.", time.time() - start)
-    logger.info("Logfile: %s", log_file)
     
     return result
 

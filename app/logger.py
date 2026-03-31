@@ -53,4 +53,4 @@ def setup_run_logger():
     logger.addHandler(fh)
     logger.addHandler(ch)
 
-    return logger, log_file
+    return logger

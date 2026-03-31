@@ -7,5 +7,4 @@ from config import Config # type: ignore
 @dataclass
 class Context:
     logger: Logger
-    log_file: str
     config: Config

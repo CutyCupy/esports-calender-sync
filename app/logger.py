@@ -7,14 +7,13 @@ import shutil
 LOGS_FOLDER = Path(__file__).parent.parent / "logs"
 
 def cleanup_logs(days=7):
-    base_dir = "logs"
     now = datetime.now()
 
-    if not os.path.exists(base_dir):
+    if not os.path.exists(LOGS_FOLDER):
         return
 
-    for folder in os.listdir(base_dir):
-        folder_path = os.path.join(base_dir, folder)
+    for folder in os.listdir(LOGS_FOLDER):
+        folder_path = os.path.join(LOGS_FOLDER, folder)
 
         try:
             folder_date = datetime.strptime(folder, "%Y-%m-%d")
